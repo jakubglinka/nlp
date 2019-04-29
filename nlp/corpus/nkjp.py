@@ -6,7 +6,8 @@ from nlp.utils import tqdm_wget_pbar
 from wget import download
 import tarfile
 import bs4
-from typing import Union, Dict, List
+import re
+from typing import Union, Dict, List, Tuple, Any, Iterator
 
 URL_IPIPAN = "http://clip.ipipan.waw.pl/NationalCorpusOfPolish\
 ?action=AttachFile&do=get&target=NKJP-PodkorpusMilionowy-1.2.tar.gz"
@@ -15,6 +16,7 @@ URL_IPIPAN = "http://clip.ipipan.waw.pl/NationalCorpusOfPolish\
 class NKJP:
     """ NKJP class. """
     def __init__(self, dir: str, url: str = None):
+        self.headers = None
         if url is not None:
             self.url = url
         else:
@@ -57,6 +59,40 @@ class NKJP:
     def download(self):
         self._download()
         self._extract()
+
+        return self
+
+    def parse_headers(self):
+        """Creates dictionary of headers."""
+
+        if self.headers is None:
+            dirs = os.listdir(self.dir)
+            dirs = [x for x in dirs if os.path.isdir(self.dir + "/" + x)]
+
+            logging.info("Parsing headers...")
+            headers = []
+            for x in tqdm.tqdm(dirs):
+                path = self.dir + "/" + x
+                header = _parse_header(path)
+                header["dir"] = x
+                headers.append(header)
+
+            self.headers = headers
+        else:
+            logging.info("Corpus headers already parsed. Reusing...")
+
+        return self
+
+    SentenceIterator = Iterator[List[str]]
+    TextIterator = Iterator[SentenceIterator]
+
+    def tokenized_sentences(self) -> TextIterator:
+        if self.headers is None:
+            logging.error("Corpus not fully initialized. Parse headers first!")
+        else:
+            for text_dict in self.headers:
+                folder = text_dict["dir"]
+                yield text_dict, parse_text(self.dir + "/" + folder)
 
 
 def _header_get_words(header: bs4.BeautifulSoup) -> Union[int, None]:
@@ -111,18 +147,82 @@ def _parse_header(dir: str) -> Dict[str, Union[str, int]]:
     return res
 
 
-def parse_headers(corpus: NKJP) -> List[Dict[str, Union[str, int]]]:
-    """Creates dictionary of headers."""
+def _parse_text(dir: str) -> List[Tuple[str, str]]:
 
-    dirs = os.listdir(corpus.dir)
-    dirs = [x for x in dirs if os.path.isdir(corpus.dir + "/" + x)]
+    if os.path.isdir(dir):
+        with open(dir + "/text.xml") as f:
+            text = bs4.BeautifulSoup(f, features="html.parser")
+    else:
+        "TODO: test behavior!"
+        raise Exception("Directory does not exist!")
 
-    logging.info("Parsing headers...")
-    headers = []
-    for x in tqdm.tqdm(dirs):
-        path = corpus.dir + "/" + x
-        header = _parse_header(path)
-        header["dir"] = x
-        headers.append(header)
+    res = []
+    for tag in ["ab", "u", "p", "head"]:
+        sents = text.teicorpus.tei.body.find_all(tag)
+        for s in sents:
+            res.append((s.get("xml:id"), s.text))
 
-    return headers
+    return res
+
+
+Segment = Tuple[str, str, int, int]
+Sentence = List[Segment]
+
+
+def _parse_segments(dir: str) -> List[Sentence]:
+
+    if os.path.isdir(dir):
+        with open(dir + "/ann_segmentation.xml") as f:
+            segments = bs4.BeautifulSoup(f, features="html.parser")
+    else:
+        raise Exception("Supplied path is not a valid directory!")
+
+    sents = segments.teicorpus.tei.body.find_all("s")
+    res = []
+    for sent in sents:
+        segs = sent.find_all("seg")
+        seg_list = []
+        for s in segs:
+            seg_list.append((s.get("corresp"), s.get("xml:id")))
+        res.append(seg_list)
+
+
+    def _get_token(x: Tuple[str, str]) -> Tuple[str, str, int, int]:
+        token_id = x[1]
+        xx = re.findall("\(.*\)",x[0])[0]
+        sentence_id, start, stop = xx.strip("()").split(",")
+        return (sentence_id, token_id, int(start), int(stop))
+
+    res = list(map(lambda x: list(map(_get_token, x)), res))
+    return res
+
+
+def _transform_list_of_tuples_to_dict(x: List[Tuple[Any, ...]]) -> Dict[str, List[Tuple[str, int, int]]]:
+    d = {}
+    for key, values in x:
+        tt = d.setdefault(key, "")
+        for value in values:
+            tt += value
+        d[key] = tt
+
+    return d
+
+
+def parse_text(dir: str) -> Iterator[List[str]]:
+
+    def _get_sentence(sent: Sentence, texts: Dict[str, str]) -> List[str]:
+
+        res = []
+        for txt, _, start, nchars in sent:
+            stop = start + nchars
+            res.append(texts[txt][start:stop])
+
+        return res
+
+    texts = _parse_text(dir)
+    texts = _transform_list_of_tuples_to_dict(texts)
+
+    segs = _parse_segments(dir)
+
+    for sentence in segs:
+        yield _get_sentence(sentence, texts)
