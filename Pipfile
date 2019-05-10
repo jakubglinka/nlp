@@ -12,10 +12,10 @@ untangle = "*"
 wget = "*"
 tqdm = "*"
 sentencepiece = "*"
-tensorflow = "*"
 absl-py = "*"
 pandas = "*"
 beautifulsoup4 = "*"
+tensorflow = "==2.0.0-alpha0"
 
 [requires]
 python_version = "3.7"

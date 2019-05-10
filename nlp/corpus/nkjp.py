@@ -7,7 +7,7 @@ from wget import download
 import tarfile
 import bs4
 import re
-from typing import Union, Dict, List, Tuple, Any, Iterator
+from typing import Union, Dict, List, Tuple, Any, Iterator, Callable
 
 URL_IPIPAN = "http://clip.ipipan.waw.pl/NationalCorpusOfPolish\
 ?action=AttachFile&do=get&target=NKJP-PodkorpusMilionowy-1.2.tar.gz"
@@ -17,6 +17,7 @@ class NKJP:
     """ NKJP class. """
     def __init__(self, dir: str, url: str = None):
         self.headers = None
+        self.filter = None
         if url is not None:
             self.url = url
         else:
@@ -86,13 +87,26 @@ class NKJP:
     SentenceIterator = Iterator[List[str]]
     TextIterator = Iterator[SentenceIterator]
 
-    def tokenized_sentences(self) -> TextIterator:
+    def tokenized_sentences(
+                            self,
+                            filter: Callable[[Dict[str, Any]], bool]=None
+                            ) -> TextIterator:
         if self.headers is None:
             logging.error("Corpus not fully initialized. Parse headers first!")
         else:
             for text_dict in self.headers:
                 folder = text_dict["dir"]
-                yield text_dict, parse_text(self.dir + "/" + folder)
+                if filter is not None:
+                    if filter(text_dict):
+                        yield text_dict, parse_text(self.dir + "/" + folder)
+                else:
+                    yield text_dict, parse_text(self.dir + "/" + folder)
+
+    def sentences(self):
+        pass
+    
+    def texts(self):
+        pass
 
 
 def _header_get_words(header: bs4.BeautifulSoup) -> Union[int, None]:

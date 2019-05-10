@@ -1,27 +1,55 @@
 from nlp.corpus import nkjp
 import pandas as pd
 import absl
+from nlp.models import word2vec
 absl.logging.set_verbosity(absl.logging.INFO)
 
-corpus = nkjp.NKJP(dir="/tmp/nkjp/")
-corpus.download()
+corpus = nkjp.NKJP(dir="/tmp/nkjp/").download().parse_headers()
 
-headers = nkjp.parse_headers(corpus)
-
-df = pd.DataFrame(headers)
+df = pd.DataFrame(corpus.headers)
 print(df.head(10))
 
-df.describe(include="all")
+import hashlib
 
-df["#taxonomy-NKJP-channel"].value_counts()
-df["#taxonomy-NKJP-type"].value_counts()
+def sample_dir(dir, frac=1.0):
+    return int(hashlib.md5(dir.encode()).hexdigest()[:2], 16) / 255 <= frac
 
-# import bs4
-# with open("/tmp/nkjp/610-1-000988/header.xml") as f:
-#     header = bs4.BeautifulSoup(f)
+gen = lambda: corpus.tokenized_sentences(filter=lambda d: sample_dir(d["dir"], .95))
 
-# refs = header.profiledesc.textclass.find_all("catref")
-# dict([(r.get("scheme"), r.get("target")) for r in refs])
+MAX = 100
+inc = 0
+for _, text in gen():
+    for sent in text:
+        print(sent)
+        inc += 1
 
-# from nlp.corpus.nkjp import URL_IPIPAN
-# URL_IPIPAN
+    if inc > MAX:
+        break
+
+vocab = word2vec.create_vocabulary(gen())
+vocab = word2vec.prune_vocabulary(vocab, 10)
+vocab.most_common(100)
+
+sum(vocab.values())
+len(vocab.keys())
+
+vocab["miał"]
+
+sent
+
+
+encode_sentence(sent, vocab)
+
+sent
+
+
+keys = ["a", "b"]
+values = [1, 2]
+
+table = tf.lookup.StaticHashTable(
+    tf.lookup.KeyValueTensorInitializer(keys, values), -1)
+
+import tensorflow as tf
+
+out = table.lookup(tf.convert_to_tensor(["a", "a", "b"]))
+out
