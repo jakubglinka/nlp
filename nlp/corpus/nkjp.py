@@ -104,7 +104,7 @@ class NKJP:
 
     def sentences(self):
         pass
-    
+
     def texts(self):
         pass
 
@@ -128,7 +128,9 @@ def _header_get_text_origin(header: bs4.BeautifulSoup) -> Union[str, None]:
     notes = header.teiheader.filedesc.sourcedesc.find_all("note")
     if len(notes):
         types = map(lambda x: x.get("type"), notes)
-        res = [note for note, type in zip(notes, types) if type == "text_origin"]
+        res = [
+            note for note, type in zip(notes, types)
+            if type == "text_origin"]
         res = res[0]
         res = res.text
     else:
@@ -200,10 +202,9 @@ def _parse_segments(dir: str) -> List[Sentence]:
             seg_list.append((s.get("corresp"), s.get("xml:id")))
         res.append(seg_list)
 
-
     def _get_token(x: Tuple[str, str]) -> Tuple[str, str, int, int]:
         token_id = x[1]
-        xx = re.findall("\(.*\)",x[0])[0]
+        xx = re.findall("\(.*\)", x[0])[0]
         sentence_id, start, stop = xx.strip("()").split(",")
         return (sentence_id, token_id, int(start), int(stop))
 
@@ -211,7 +212,8 @@ def _parse_segments(dir: str) -> List[Sentence]:
     return res
 
 
-def _transform_list_of_tuples_to_dict(x: List[Tuple[Any, ...]]) -> Dict[str, List[Tuple[str, int, int]]]:
+def _transform_list_of_tuples_to_dict(x: List[Tuple[Any, ...]]) \
+                        -> Dict[str, List[Tuple[str, int, int]]]:
     d = {}
     for key, values in x:
         tt = d.setdefault(key, "")
