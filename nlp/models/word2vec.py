@@ -53,7 +53,7 @@ class Vocabulary:
         return Vocabulary(counts=counts)
 
 
-def encode_sentence(s: List[str], vocab) -> List[int]:
+def _normalize_sentence(s: List[str], vocab: Vocabulary) -> List[str]:
 
     es = []
     es.append("_bos_")
@@ -63,13 +63,52 @@ def encode_sentence(s: List[str], vocab) -> List[int]:
         elif token.isupper():
             es.append("_up_")
         token = token.lower()
-        if vocab[token]:
+
+        if token in vocab.tokens:
             es.append(token)
         else:
             es.append("_unk_")
 
     es.append("_eos_")
+
     return es
+
+
+def encode_sentence(s: List[str], vocab: Vocabulary) -> List[int]:
+
+    es = []
+    ns = _normalize_sentence(s, vocab)
+    for token in ns:
+        es.append(vocab.token_index[token])
+
+    return es
+
+
+def decode_sentence(s: List[int], vocab: Vocabulary) -> List[str]:
+
+    res = []
+    is_maj = False
+    is_upp = False
+    for ind in s:
+        token = vocab.index_token[ind]
+        if token == "_maj_":
+            is_maj = True
+        elif token == "_upp_":
+            is_upp = True
+        else:
+            if is_maj:
+                res.append(token.title())
+            elif is_upp:
+                res.appemd(token.upper())
+            else:
+                res.append(token)
+
+            is_maj, is_upp = False, False
+
+    res.remove("_bos_")
+    res.remove("_eos_")
+
+    return res
 
 
 # def cbow_tf_records(s: List[str]) -> List[tf.TFRecord])???

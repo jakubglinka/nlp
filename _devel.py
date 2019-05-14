@@ -16,8 +16,8 @@ def sample_dir(dir, frac=1.0):
 
 
 def gen():
-    return lambda: corpus.tokenized_sentences(
-        filter=lambda d: sample_dir(d["dir"], .01))
+    return corpus.tokenized_sentences(
+        filter=lambda d: sample_dir(d["dir"], .9))
 
 MAX = 100
 inc = 0
@@ -30,3 +30,8 @@ for _, text in gen():
         break
 
 vocab = word2vec.Vocabulary(gen())
+
+s1 = sent
+e1 = word2vec.encode_sentence(s1, vocab)
+" ".join(word2vec.decode_sentence(e1, vocab))
+
