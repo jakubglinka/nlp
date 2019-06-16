@@ -19,3 +19,4 @@ class tqdm_wget_pbar:
 
   def __exit__(self, b, c, d):
     self.tqdm.close()
+

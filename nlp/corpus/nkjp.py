@@ -87,6 +87,7 @@ class NKJP:
     SentenceIterator = Iterator[List[str]]
     TextIterator = Iterator[SentenceIterator]
 
+    # TODO: decide whether we need filter here
     def tokenized_sentences(
                             self,
                             filter: Callable[[Dict[str, Any]], bool]=None
@@ -102,8 +103,20 @@ class NKJP:
                 else:
                     yield text_dict, parse_text(self.dir + "/" + folder)
 
-    def sentences(self):
-        pass
+    def sentences(self,
+                  filter: Callable[[Dict[str, Any]],
+                  bool]=None) -> Iterator[str]:
+
+        if self.headers is None:
+            logging.error("Corpus not fully initialized. Parse headers first!")
+        else:
+            for text_dict in self.headers:
+                folder = text_dict["dir"]
+                if filter is not None:
+                    if filter(text_dict):
+                        yield text_dict, parse_sentences(self.dir + "/" + folder)
+                else:
+                    yield text_dict, parse_sentences(self.dir + "/" + folder)
 
     def texts(self):
         pass
@@ -224,9 +237,10 @@ def _transform_list_of_tuples_to_dict(x: List[Tuple[Any, ...]]) \
     return d
 
 
+# TODO: change to parse tokenised sentence
 def parse_text(dir: str) -> Iterator[List[str]]:
 
-    def _get_sentence(sent: Sentence, texts: Dict[str, str]) -> List[str]:
+    def _get_tokens(sent: Sentence, texts: Dict[str, str]) -> List[str]:
 
         res = []
         for txt, _, start, nchars in sent:
@@ -234,6 +248,31 @@ def parse_text(dir: str) -> Iterator[List[str]]:
             res.append(texts[txt][start:stop])
 
         return res
+
+    texts = _parse_text(dir)
+    texts = _transform_list_of_tuples_to_dict(texts)
+
+    segs = _parse_segments(dir)
+
+    for sentence in segs:
+        yield _get_tokens(sentence, texts)
+
+
+def parse_sentences(dir: str) -> Iterator[List[str]]:
+
+    def _get_sentence(sent: Sentence, texts: Dict[str, str]) -> Tuple[int, int]:
+
+        res = []
+        token_starts = []
+        token_stops = []
+        for txt, _, start, nchars in sent:
+            token_starts.append(start)
+            token_stops.append(start + nchars)
+
+        sent_start = min(token_starts)
+        sent_stop = max(token_stops)
+
+        return texts[txt][sent_start:sent_stop]
 
     texts = _parse_text(dir)
     texts = _transform_list_of_tuples_to_dict(texts)
