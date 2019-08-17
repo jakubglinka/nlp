@@ -1,2 +1,5 @@
 *cache*
 .DS*
+settings.json
+/data/*
+*.pdf
